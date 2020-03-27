@@ -2,12 +2,12 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { Provider } from 'mobx-react';
 import App from './App';
-import Store from './store'
-//import 'bootstrap/dist/css/bootstrap.css'
-import 'bootstrap/dist/css/bootstrap.min.css';
+import TaskStore from './stores/taskStore';
+
+const task = new TaskStore();
 
 ReactDOM.render(
-  <Provider store={Store}>
+  <Provider task={task}>
     <App />
   </Provider>
 , document.getElementById('root')
