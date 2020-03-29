@@ -1,19 +1,11 @@
 import React from 'react';
 import { observer, inject } from 'mobx-react';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import Collapse from '@material-ui/core/Collapse';
-import Divider from '@material-ui/core/Divider';
-import IconButton from '@material-ui/core/IconButton';
+import { observable } from 'mobx';
 import Pagination from '@material-ui/lab/Pagination';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
-import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
-import ExpandLess from '@material-ui/icons/ExpandLess';
-import ExpandMore from '@material-ui/icons/ExpandMore';
-import TaskItemDialog from './TaskItemDialog';
+import SearchBox from './SearchBox';
+import TaskUpdateDialog from './TaskUpdateDialog';
 import TaskAddInput from './TaskAddInput';
+import ActiveTaskList from './ActiveTaskList';
 import ClosedTaskList from './ClosedTaskList';
 
 const styles = {
@@ -26,7 +18,7 @@ const styles = {
   pagination: {
     display: 'flex',
     justifyContent: 'center',
-    marginTop: '20px',
+    marginTop: '10px',
   },
   nested: {
     paddingLeft: '70px',
@@ -36,14 +28,11 @@ const styles = {
 @inject('task')
 @observer
 class TaskList extends React.Component {
+  @observable page = 1;
+  @observable totalPage = 0;
+
   constructor(props) {
     super(props);
-
-    this.state = {
-      listItemClickId: 0,
-      checkboxClickId: 0,
-      expandClickId: 0,
-    };
 
     this.taskDialogRef = React.createRef();
   }
@@ -52,37 +41,61 @@ class TaskList extends React.Component {
     this.fetchData();
   }
 
-  fetchData = () => {
-    this.props.task.getActiveTasks();
-    this.props.task.getClosedTasks();
+  fetchData = async(searchParams = null) => {
+    const params = searchParams ? searchParams : {
+      page: this.page,
+    }
+
+    const responseActive = await this.props.task.getActiveTasks(params);
+    this.totalPage = Math.ceil(Number.parseInt(responseActive.totalCount) / 5);
+    
+    const responseClose = this.props.task.getClosedTasks(searchParams);
+
+    this.props.task.getPreTasks();
+  }
+
+  changedPage = (event, value) => {  
+    this.page = value;
+    this.fetchData();
   }
 
   openTaskDialog = (item) => {
-    this.setState({
-      listItemClickId: item.task_id
-    });
-
+    
     this.taskDialogRef.current.openDialog(item);
   }
 
   preTaskToggle = (item, event) => {
     event.stopPropagation();
-
     item.open = !item.open;
+  }
 
-    this.setState({
-      expandClickId: item.task_id
-    });
+  paginationCorrection = () => {
+    const totalCount = Number.parseInt(this.props.task.totalCount);
+
+    if (this.page && Math.ceil((totalCount - 1) / 5) < this.page) {
+      this.page--;
+    }
   }
 
   closeTask = async(item, event) => {
     event.stopPropagation();
-
-    this.setState({
-      checkboxClickId: item.task_id
-    });
-
     const response = await this.props.task.updateTaskStatus(item.task_id, 'close');
+
+    if (response.data.result_code === 'FAIL') {
+        alert(response.data.message);
+        return false;
+    }
+
+    if (response) {
+      item.close = true;
+      this.paginationCorrection();  
+      this.fetchData();
+    }
+  }
+
+  reopenTask = async(item, event) => {
+    event.stopPropagation();
+    const response = await this.props.task.updateTaskStatus(item.task_id, 'reopen');
 
     if (response) {
       this.fetchData();
@@ -91,78 +104,46 @@ class TaskList extends React.Component {
 
   removeTask = async(item, event) => {
     event.stopPropagation();
-
-    this.setState({
-      checkboxClickId: item.task_id
-    });
-
     const response = await this.props.task.removeTask(item.task_id);
 
     if (response) {
+      this.paginationCorrection();
       this.fetchData();
     }
   }
 
-  changedPage = (event, value) => {
-    // setPage(value)
-    // console.log(page)
-  }
-
   render() {
-    const { task } = this.props;
-
     return (     
       <div style={styles.contentTop}>
-        <TaskItemDialog ref={this.taskDialogRef} />
-        <TaskAddInput />
-        <List style={styles.root}>
-          {task.activeTasks.map((item, index) => {
-            return (
-              <div key={index}>
-                <ListItem button onClick={() => this.openTaskDialog(item)}>
-                  <ListItemIcon>
-                    <IconButton onClick={(event) => this.closeTask(item, event)}>
-                      {this.state.checkboxClickId === item.task_id ? <CheckBoxIcon /> : <CheckBoxOutlineBlankIcon />}
-                    </IconButton>
-                  </ListItemIcon>
-                  <ListItemText 
-                    id={item.task_id} 
-                    primary={item.task_title}
-                    secondary={`작성일 : ${item.createdAt} / 수정일 : ${item.updatedAt}`} 
-                    />
-                  <IconButton onClick={(event) => this.preTaskToggle(item, event)}>
-                    {/* {this.state.expandClickId === item.task_id ? <ExpandLess /> : <ExpandMore />} */}
-                    {item.open ? <ExpandLess /> : <ExpandMore />}
-                  </IconButton>
-                </ListItem>
-                <Collapse in={item.open} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    <ListItem style={styles.nested}>
-                      <ListItemIcon>
-                        <CheckBoxIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Starred" />
-                    </ListItem>
-                    <ListItem style={styles.nested}>
-                      <ListItemIcon>
-                        <CheckBoxOutlineBlankIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Starred" />
-                    </ListItem>
-                  </List>
-                </Collapse>
-                <Divider />
-              </div>
-            );
-          })}
-        </List>
-        <Pagination 
-          style={styles.pagination} 
-          count={10} 
-          page={this.page} 
-          onChange={this.changedPage} 
-          />
-        <ClosedTaskList />
+        <TaskUpdateDialog 
+          ref={this.taskDialogRef} 
+          onFetchData={this.fetchData} 
+        />
+        <SearchBox
+          onFetchData={this.fetchData}
+        />
+        <TaskAddInput 
+          onFetchData={this.fetchData}
+        />
+        <ActiveTaskList
+          onOpenTaskDialog={(item) => this.openTaskDialog(item)}
+          onCloseTask={(item, event) => this.closeTask(item, event)}
+          onRemoveTask={(item, event) => this.removeTask(item, event)}
+        />
+        {
+          this.totalPage 
+          ? <Pagination 
+              style={styles.pagination} 
+              count={this.totalPage} 
+              page={this.page} 
+              onChange={this.changedPage} 
+            />
+          : ''
+        }
+        <ClosedTaskList 
+          onReopenTask={(item, event) => this.reopenTask(item, event)}
+          onRemoveTask={(item, event) => this.removeTask(item, event)}
+        />
       </div>
     )
   }

@@ -2,12 +2,14 @@ import React from 'react';
 import { observer, inject } from 'mobx-react';
 import { observable } from 'mobx';
 import TextField from '@material-ui/core/TextField';
+import SearchIcon from '@material-ui/icons/Search';
 
 const styles = {
   root: {
     display: 'flex',
     flexWrap: 'wrap',
     marginBottom: '20px',
+    borderColor: '#86b9eb',
   },
   textField: {
     margin: '8px',
@@ -16,13 +18,11 @@ const styles = {
 
 @inject('task')
 @observer
-class TaskAddInput extends React.Component {
+class SearchBox extends React.Component {
   @observable taskTitle = '';
 
   constructor(props) {
     super(props);
-
-    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   handleChange = (event) => {
@@ -30,16 +30,14 @@ class TaskAddInput extends React.Component {
   }
 
   handleKeyDown = async(event) => {
-    if (this.taskTitle && event.keyCode === 13) { 
-      const response = await this.props.task.addTask({
+    if (this.taskTitle && event.keyCode === 13) {
+      const params = {
         task_title: this.taskTitle
-      });
-
-      if (response) {
-        this.props.onFetchData();
       }
 
       this.taskTitle = '';
+
+      this.props.onFetchData(params);
     }
   }
 
@@ -48,9 +46,9 @@ class TaskAddInput extends React.Component {
       <div style={styles.root}>
         <TextField
           id="standard-full-width"
-          label="Add a task"
+          // label="Task title"
           style={styles.textField}
-          placeholder="Write your task here"
+          placeholder="Search here"
           fullWidth
           margin="normal"
           InputLabelProps={{
@@ -61,8 +59,8 @@ class TaskAddInput extends React.Component {
           onKeyDown={this.handleKeyDown}
         />
       </div>
-    );    
+    );
   }
 }
 
-export default TaskAddInput
+export default SearchBox
