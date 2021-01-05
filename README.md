@@ -1,9 +1,9 @@
 # React Todo App
 
 ## 설치
-> git clone https://github.com/Joybell/flask-todo-api.git
+> git clone https://github.com/Joybell/react-todo-app.git
 
-> cd flask-todo-api
+> cd react-todo-app
 
 > yarn install or npm install
 
